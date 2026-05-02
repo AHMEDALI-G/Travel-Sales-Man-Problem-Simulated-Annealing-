@@ -1,0 +1,797 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>CityZen TSP · Neon Pulse · Simulated Annealing</title>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+    <style>
+        /* ========== COMPLETE STYLES (unchanged) ========== */
+        .menu-toggle {
+    position: fixed;
+    top: 2in;              /* 2 inches from top */
+    left: var(--space-2);  /* lines up with sidebar padding */
+    z-index: 100;          /* stays above canvas and sidebar */
+    background: linear-gradient(135deg, #ff2a6d, #ff8cce);
+    border: none;
+    color: white;
+    padding: 12px 20px;
+    border-radius: 60px;
+    font-weight: 800;
+    font-size: 13px;
+    cursor: pointer;
+    box-shadow: 0 6px 20px rgba(255, 42, 109, 0.5), 0 0 0 1px rgba(255, 255, 0.3) inset;
+    text-shadow: 0 0 8px rgba(0, 0, 0, 0.3);
+    transition: all 0.2s ease;
+}
+
+.menu-toggle:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(255, 42, 109, 0.6), 0 0 0 1px rgba(255, 255, 255, 0.4) inset;
+}
+
+.menu-toggle:active {
+    transform: translateY(0px);
+}
+
+        :root {
+            --bg-cream: #fff9eb;
+            --bg-sun: #fff4e0;
+            --glass-light: rgba(255, 245, 225, 0.75);
+            --glass-border: rgba(255, 20, 147, 0.5);
+            --neon-pink: #ff2a6d;
+            --neon-hotpink: #ff6ac4;
+            --neon-cyan: #00f0ff;
+            --neon-amber: #ffcc33;
+            --neon-green: #39ff14;
+            --neon-blue: #1e90ff;
+            --text-dark: #1a0b1a;
+            --text-soft: #3c2a3c;
+            --text-glow: #fff0f5;
+            --radius-lg: 28px;
+            --radius-md: 20px;
+            --radius-sm: 14px;
+            --space-1: 8px;
+            --space-2: 16px;
+            --space-3: 24px;
+            --space-4: 32px;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; user-select: none; }
+        body {
+            min-height: 100vh;
+            background: radial-gradient(circle at 20% 30%, #fff2dc, #ffe6c7);
+            background-color: #fff5e6;
+            font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
+            color: var(--text-dark);
+            overflow-x: hidden;
+            position: relative;
+        }
+        body::before {
+            content: "";
+            position: fixed;
+            inset: 0;
+            background: radial-gradient(circle at 10% 20%, rgba(255, 42, 109, 0.2) 0%, transparent 50%),
+                        radial-gradient(circle at 90% 70%, rgba(0, 240, 255, 0.2) 0%, transparent 60%);
+            pointer-events: none;
+            z-index: 0;
+        }
+        body::after {
+            content: "";
+            position: fixed;
+            inset: 0;
+            background-image: repeating-linear-gradient(45deg, rgba(255, 42, 109, 0.08) 0px, rgba(255, 42, 109, 0.08) 2px, transparent 2px, transparent 8px);
+            pointer-events: none;
+            z-index: 0;
+        }
+        .app {
+            position: relative;
+            z-index: 2;
+            display: grid;
+            grid-template-columns: 360px 1fr;
+            gap: var(--space-3);
+            padding: var(--space-3);
+            min-height: 100vh;
+            transition: grid-template-columns 0.4s cubic-bezier(0.2, 0.9, 0.4, 1.1);
+        }
+        .app.sidebar-hidden { grid-template-columns: 0px 1fr; }
+       .sidebar {
+    background: var(--glass-light);
+    backdrop-filter: blur(16px);
+    border: 1px solid var(--glass-border);
+    border-radius: var(--radius-lg);
+    padding: var(--space-3);
+    box-shadow: 0 20px 35px -12px rgba(0, 0, 0, 0.2), 0 0 0 1px rgba(255, 105, 180, 0.4), inset 0 1px 2px rgba(255,255,200,0.6);
+    height: fit-content;
+    max-height: calc(100vh - 48px);
+    overflow-y: auto;
+    transition: transform 0.4s cubic-bezier(0.2, 0.9, 0.4, 1.1);
+    margin-top: 1in;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+}
+
+.section { 
+    margin-bottom: 0; 
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1);
+}
+
+.section-title {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-size: 14px;
+    font-weight: 800;
+    color: var(--neon-pink);
+    margin-bottom: var(--space-1);
+    padding-left: 12px;
+    border-left: 4px solid var(--neon-cyan);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.btn {
+    width: 100%;
+    background: rgba(255, 245, 235, 0.85);
+    border: 1px solid rgba(255, 42, 109, 0.5);
+    padding: 14px 16px;
+    border-radius: var(--radius-sm);
+    font-weight: 700;
+    font-size: 13px;
+    color: #2c1a2c;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 10px;
+    margin-bottom: 0;
+    text-align: left;
+}
+
+.btn-primary {
+    background: linear-gradient(95deg, #ff2a6d, #ff6ac4);
+    border: none;
+    color: white;
+    box-shadow: 0 4px 12px rgba(255, 42, 109, 0.4);
+    justify-content: center;
+}
+
+.palette {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: var(--space-1);
+    background: rgba(255, 245, 220, 0.6);
+    padding: var(--space-2);
+    border-radius: var(--radius-md);
+    border: 1px solid rgba(255, 42, 109, 0.4);
+    width: 100%;
+}
+
+.palette-item {
+    background: rgba(255, 250, 240, 0.9);
+    border: 1px solid rgba(255, 105, 180, 0.4);
+    border-radius: var(--radius-sm);
+    font-size: 12px;
+    font-weight: 600;
+    text-align: center;
+    padding: 12px 4px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    min-height: 68px;
+}
+
+.palette-item div {
+    font-size: 24px;
+    line-height: 1;
+}
+
+.palette-item span {
+    font-size: 11px;
+    line-height: 1.1;
+}
+
+.palette-item.selected {
+    background: linear-gradient(145deg, #ffd9e8, #ffc0dd);
+    border: 2px solid var(--neon-pink);
+    box-shadow: 0 0 20px rgba(255, 42, 109, 0.6);
+}
+
+.badge {
+    background: rgba(255, 240, 230, 0.9);
+    border: 1px solid var(--neon-cyan);
+    border-radius: var(--radius-sm);
+    padding: 12px;
+    font-size: 12px;
+    text-align: center;
+    font-family: 'JetBrains Mono', monospace;
+    width: 100%;
+}
+        .canvas-card {
+            background: var(--glass-light);
+            backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 105, 180, 0.5);
+            border-radius: var(--radius-lg);
+            padding: var(--space-2);
+        }
+        .canvas-wrapper {
+            background: #0c0f1c;
+            border-radius: var(--radius-md);
+            border: 2px solid rgba(255, 42, 109, 0.7);
+            overflow: hidden;
+        }
+        canvas {
+            display: block;
+            width: 100%;
+            height: auto;
+            cursor: crosshair;
+        }
+        .controls {
+            background: var(--glass-light);
+            backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 105, 180, 0.5);
+            border-radius: var(--radius-lg);
+            padding: var(--space-2);
+            display: flex;
+            flex-wrap: wrap;
+            gap: var(--space-1);
+            justify-content: center;
+        }
+        .ctrl-btn {
+            background: rgba(255, 245, 235, 0.9);
+            border: 1px solid var(--neon-pink);
+            padding: 10px 18px;
+            border-radius: 60px;
+            font-weight: 700;
+            font-size: 13px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .ctrl-btn.green { background: rgba(57, 255, 20, 0.2); border-color: var(--neon-green); color: #116b00; }
+        .ctrl-btn.blue { background: rgba(0, 240, 255, 0.2); border-color: var(--neon-cyan); color: #005f6b; }
+        .ctrl-btn.primary { background: linear-gradient(135deg, #ff2a6d, #ff8cce); border: none; color: white; }
+        .stats {
+            background: var(--glass-light);
+            backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 105, 180, 0.5);
+            border-radius: var(--radius-lg);
+            padding: var(--space-2);
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: var(--space-2);
+            margin-bottom: var(--space-2);
+        }
+        .stat {
+            background: rgba(255, 250, 240, 0.8);
+            border: 1px solid rgba(255, 42, 109, 0.5);
+            border-radius: var(--radius-md);
+            padding: 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        .stat-label {
+            font-size: 11px;
+            font-weight: 800;
+            color: var(--neon-pink);
+            text-transform: uppercase;
+            font-family: 'JetBrains Mono', monospace;
+        }
+        .stat-value {
+            font-size: 30px;
+            font-weight: 800;
+            color: #1c0b1c;
+            font-family: 'JetBrains Mono', monospace;
+        }
+        .hero-title {
+            position: relative;
+            width: 100%;
+            background: linear-gradient(135deg, #ff2a6d, #ffb347, #00f0ff);
+            padding: 24px 32px;
+            text-align: center;
+            box-shadow: 0 8px 25px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+            z-index: 5;
+        }
+        .hero-title h1 {
+            font-size: 2.2rem;
+            font-weight: 800;
+            color: white;
+            text-shadow: 0 0 12px rgba(0,0,0,0.3);
+            margin-bottom: 8px;
+        }
+        .hero-title p {
+            font-size: 0.9rem;
+            font-weight: 500;
+            color: #fff9e8;
+        }
+        .footer {
+            text-align: center;
+            font-size: 11px;
+            color: #7a4e6b;
+            margin-top: 10px;
+        }
+        @media (max-width: 1024px) {
+            .app { grid-template-columns: 1fr; }
+            .sidebar {
+                position: fixed;
+                left: var(--space-2);
+                top: 80px;
+                width: calc(100% - 32px);
+                max-width: 360px;
+                z-index: 99;
+            }
+            .app.sidebar-hidden .sidebar { transform: translateX(-120%); }
+        }
+    </style>
+</head>
+<body>
+    <button class="menu-toggle" id="menuToggle">✨ MENU ✨</button>
+    <div class="hero-title">
+        <div class="hero-glow"></div>
+        <h1>🌆 Travel Salesman Problem Game</h1>
+        <p>Simulated Annealing | Smart Route Optimization</p>
+    </div>
+    <div class="app" id="app">
+        <aside class="sidebar" id="sidebar">
+            <div class="section"><div class="section-title">🎨 SCENARIO BUILDER</div>
+                <button class="btn btn-primary" id="makeCustomBtn">🏗️ CREATE CUSTOM MAP</button>
+                <div class="badge" id="scenarioStatus">Mode: Default Skyline</div>
+            </div>
+            <div class="section"><div class="section-title">🚛 SELECT VEHICLE</div>
+                <div class="palette" id="vehiclePalette">
+                    <div class="palette-item selected" data-vehicle="🚗"><div>🚗</div><span>Sedan</span></div>
+                    <div class="palette-item" data-vehicle="🚜"><div>🚜</div><span>Truck</span></div>
+                    <div class="palette-item" data-vehicle="🏍️"><div>🏍️</div><span>Bike</span></div>
+                    <div class="palette-item" data-vehicle="🧑‍🌾"><div>🧑‍🌾</div><span>Vendor</span></div>
+                    <div class="palette-item" data-vehicle="🚲"><div>🚲</div><span>Courier</span></div>
+                    <div class="palette-item" data-vehicle="🐪"><div>🐪</div><span>Camel</span></div>
+                    <div class="palette-item" data-vehicle="✈️"><div>✈️</div><span>Airplane</span></div>
+                </div>
+            </div>
+            <div class="section"><div class="section-title">📍 LANDMARK TYPE</div>
+                <div class="palette" id="destPalette">
+                    <div class="palette-item selected" data-dest="🕌"><div>🕌</div><span>Mosque</span></div>
+                    <div class="palette-item" data-dest="🏠"><div>🏠</div><span>Home</span></div>
+                    <div class="palette-item" data-dest="🏛️"><div>🏛️</div><span>Court</span></div>
+                    <div class="palette-item" data-dest="⛩️"><div>⛩️</div><span>Shrine</span></div>
+                    <div class="palette-item" data-dest="🏞️"><div>🏞️</div><span>Park</span></div>
+                    <div class="palette-item" data-dest="🏰"><div>🏰</div><span>Castle</span></div>
+                    <div class="palette-item" data-dest="🏖️"><div>🏖️</div><span>Beach</span></div>
+                </div>
+            </div>
+            <div class="section"><div class="section-title">🛣️ PATH CONTROLS</div>
+                <button class="btn btn-primary" id="makePathBtn">✏️ DEFINE VISIT ORDER</button>
+                <button class="btn" id="resetCustomBtn">🗑️ RESET MAP</button>
+                <div class="badge" id="modeStatus">Click canvas to place nodes</div>
+            </div>
+        </aside>
+        <main class="main">
+            <div class="stats">
+                <div class="stat"><div class="stat-label">🚀 YOUR PATH COST</div><div class="stat-value" id="userCostDisplay">—</div></div>
+                <div class="stat"><div class="stat-label">🧠 AI BEST COST</div><div class="stat-value" id="bestCostDisplay">0</div></div>
+                <div class="stat"><div class="stat-label">🌡️ TEMPERATURE</div><div class="stat-value" id="tempDisplay">100</div></div>
+                <div class="stat"><div class="stat-label">🗼 TOTAL NODES</div><div class="stat-value" id="nodeCountDisplay">0</div></div>
+            </div>
+            <div class="canvas-card">
+                <div class="canvas-wrapper">
+                    <canvas id="gameCanvas" width="1000" height="580"></canvas>
+                </div>
+            </div>
+            <div class="controls">
+                <button class="ctrl-btn green" id="showMyPathBtn">🟢 MY ROUTE</button>
+                <button class="ctrl-btn blue" id="showAiPathBtn">🔵 AI OPTIMAL</button>
+                <button class="ctrl-btn primary" id="showResultBtn">🏆 COMPARE</button>
+                <button class="ctrl-btn primary" id="runAiBtn">⚡ RUN ANNEALING</button>
+                <button class="ctrl-btn" id="resetAllBtn">🔄 RESET ALL</button>
+            </div>
+            <div class="footer">💡 Click landmarks to build path order · Green = your path · Blue = AI · Red edge = return home · NEON EDITION</div>
+        </main>
+    </div>
+
+    <script>
+        // ======================= FRONTEND (clean, no extra code) =======================
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        let cities = [];
+        let userPath = [];
+        let bestPath = [];
+        let bestCost = Infinity;
+        let T = 100;
+        let displayMode = 'user';
+        let selectedVehicleEmoji = "🚗";
+        let selectedDestEmoji = "🕌";
+        let customScenarioMode = false;
+        let placingNodes = true;
+        let pathDefinitionMode = false;
+        let carPos = 0;
+        let animFrame = null;
+        let glowFlag = false;
+        let lastClickNode = -1;
+        let clickPulse = 0;
+        let pollingInterval = null;
+
+        async function fetchState() {
+            try {
+                const res = await fetch('/api/state');
+                const data = await res.json();
+                cities = data.cities;
+                userPath = data.userPath;
+                bestPath = data.bestPath;
+                bestCost = data.bestCost;
+                T = data.T;
+                updateStats();
+                drawCanvas();
+            } catch(e) { console.error("Fetch error", e); }
+        }
+
+        function updateStats() {
+            const userCost = (userPath.length === cities.length && cities.length > 0) ? pathCostLocal(userPath) : 0;
+            document.getElementById('userCostDisplay').innerHTML = (userPath.length === cities.length && cities.length > 0) ? userCost.toFixed(1) : "—";
+            document.getElementById('bestCostDisplay').innerHTML = (bestCost !== Infinity) ? bestCost.toFixed(1) : "0";
+            document.getElementById('tempDisplay').innerHTML = T.toFixed(1);
+            document.getElementById('nodeCountDisplay').innerHTML = cities.length;
+        }
+
+        function pathCostLocal(path) {
+            if (!path.length || path.length < 2) return 0;
+            let total = 0;
+            for (let i = 0; i < path.length - 1; i++) {
+                const a = cities[path[i]];
+                const b = cities[path[i + 1]];
+                total += Math.hypot(a.x - b.x, a.y - b.y);
+            }
+            if (path.length === cities.length && cities.length > 0) {
+                const last = cities[path[path.length - 1]];
+                const start = cities[0];
+                total += Math.hypot(last.x - start.x, last.y - start.y);
+            }
+            return total;
+        }
+
+        // ---------- DRAWING (CLEAN, NO EXTRA STROKES) ----------
+        function drawCityBackground() {
+            ctx.fillStyle = "#0b0717";
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            for (let i = 0; i < 35; i++) {
+                let w = 22 + Math.random() * 28;
+                let h = 45 + Math.random() * 100;
+                let x = i * 40 + (Math.sin(i * 2) * 12);
+                let y = canvas.height - h - 18;
+                let gradient = ctx.createLinearGradient(x, y, x + w, y + h);
+                gradient.addColorStop(0, `rgba(255, 42, 109, 0.5)`);
+                gradient.addColorStop(1, `rgba(0, 240, 255, 0.3)`);
+                ctx.fillStyle = gradient;
+                ctx.fillRect(x, y, w, h);
+                ctx.fillStyle = `rgba(255, 240, 210, 0.8)`;
+                for (let row = 0; row < Math.floor(h / 12); row++) {
+                    for (let col = 0; col < Math.floor(w / 8); col++) {
+                        if (Math.random() > 0.45) {
+                            ctx.fillStyle = `#ffb3d1`;
+                            ctx.fillRect(x + 4 + col * 8, y + 6 + row * 12, 4, 6);
+                        }
+                    }
+                }
+            }
+            ctx.globalCompositeOperation = 'lighter';
+            for (let i = 0; i < 120; i++) {
+                ctx.fillStyle = `rgba(255, 42, 109, ${Math.random() * 0.3})`;
+                ctx.fillRect(Math.random() * canvas.width, Math.random() * canvas.height, 2, 2);
+                ctx.fillStyle = `rgba(0, 240, 255, ${Math.random() * 0.2})`;
+                ctx.fillRect(Math.random() * canvas.width, Math.random() * canvas.height, 1, 1);
+            }
+            ctx.globalCompositeOperation = 'source-over';
+        }
+
+        function drawRoadPath(path, mainColor, returnColor) {
+            if (path.length < 2) return;
+            ctx.save();
+            ctx.lineCap = 'round';
+            ctx.lineJoin = 'round';
+            for (let i = 0; i < path.length - 1; i++) {
+                const a = cities[path[i]], b = cities[path[i + 1]];
+                ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y);
+                ctx.strokeStyle = "rgba(0,0,0,0.5)"; ctx.lineWidth = 8; ctx.stroke();
+                ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y);
+                ctx.strokeStyle = "#ffb7c5"; ctx.lineWidth = 5; ctx.stroke();
+                ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y);
+                ctx.strokeStyle = mainColor; ctx.lineWidth = 3; ctx.stroke();
+            }
+            if (path.length === cities.length && cities.length > 0) {
+                const last = cities[path[path.length - 1]], start = cities[0];
+                ctx.beginPath(); ctx.moveTo(last.x, last.y); ctx.lineTo(start.x, start.y);
+                ctx.strokeStyle = "rgba(0,0,0,0.6)"; ctx.lineWidth = 8; ctx.stroke();
+                ctx.beginPath(); ctx.moveTo(last.x, last.y); ctx.lineTo(start.x, start.y);
+                ctx.strokeStyle = "#ff6382"; ctx.lineWidth = 5; ctx.stroke();
+                ctx.beginPath(); ctx.moveTo(last.x, last.y); ctx.lineTo(start.x, start.y);
+                ctx.strokeStyle = returnColor; ctx.lineWidth = 3; ctx.setLineDash([8, 8]); ctx.stroke();
+                ctx.setLineDash([]);
+            }
+            ctx.restore();
+        }
+
+        function drawNode(x, y, emoji, isStart, pulse = false) {
+            ctx.save();
+            ctx.textAlign = "center"; ctx.textBaseline = "middle";
+            if (isStart) {
+                ctx.shadowBlur = 25;
+                ctx.shadowColor = "#ff66c0";
+                ctx.beginPath(); ctx.arc(x, y, 30, 0, Math.PI * 2);
+                ctx.fillStyle = "rgba(255,105,180,0.2)"; ctx.fill();
+            }
+            ctx.shadowBlur = pulse ? 28 : 14;
+            ctx.shadowColor = isStart ? "#ff66c0" : "#00ffff";
+            ctx.font = pulse ? `46px "Segoe UI Emoji"` : `40px "Segoe UI Emoji"`;
+            ctx.fillText(emoji, x, y);
+            if (isStart) {
+                ctx.font = "22px 'Segoe UI Emoji'";
+                ctx.shadowBlur = 15;
+                ctx.fillStyle = "#fff0b5";
+                ctx.fillText("🏁", x + 24, y - 22);
+            }
+            ctx.restore();
+        }
+
+        function drawVehicle(x, y, vehicleEmoji) {
+            ctx.save();
+            ctx.font = `36px "Segoe UI Emoji"`;
+            ctx.textAlign = "center"; ctx.textBaseline = "middle";
+            ctx.shadowBlur = 20;
+            ctx.shadowColor = "#ff69b4";
+            ctx.fillText(vehicleEmoji, x, y);
+            ctx.restore();
+        }
+
+        function getSegments(path) {
+            if (!path || path.length < 2) return [];
+            let seg = [];
+            for (let i = 0; i < path.length - 1; i++) seg.push({ start: cities[path[i]], end: cities[path[i + 1]] });
+            if (path.length === cities.length && cities.length) seg.push({ start: cities[path[path.length - 1]], end: cities[0] });
+            return seg;
+        }
+
+        function getCarPos(segments, t) {
+            if (!segments.length) return null;
+            let totalLen = 0; for (let s of segments) totalLen += Math.hypot(s.end.x - s.start.x, s.end.y - s.start.y);
+            let target = t * totalLen, acc = 0;
+            for (let s of segments) {
+                let segLen = Math.hypot(s.end.x - s.start.x, s.end.y - s.start.y);
+                if (target <= acc + segLen) {
+                    let local = (target - acc) / segLen;
+                    return { x: s.start.x + (s.end.x - s.start.x) * local, y: s.start.y + (s.end.y - s.start.y) * local };
+                }
+                acc += segLen;
+            }
+            return segments[segments.length - 1].end;
+        }
+
+        function drawCanvas() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            drawCityBackground();
+            if (displayMode === 'ai' && bestPath.length === cities.length && bestCost !== Infinity)
+                drawRoadPath(bestPath, "#ff6ac4", "#ffb347");
+            if (displayMode === 'user' && userPath.length > 1) {
+                if (userPath.length === cities.length) {
+                    drawRoadPath(userPath, "#39ff14", "#ffaa44");
+                } else {
+                    // Solid green line for incomplete path (no dashed overlay)
+                    for (let i = 0; i < userPath.length - 1; i++) {
+                        const a = cities[userPath[i]], b = cities[userPath[i + 1]];
+                        ctx.beginPath();
+                        ctx.moveTo(a.x, a.y);
+                        ctx.lineTo(b.x, b.y);
+                        ctx.strokeStyle = "#39ff14";
+                        ctx.lineWidth = 4;
+                        ctx.stroke();
+                    }
+                }
+            }
+            for (let i = 0; i < cities.length; i++) {
+                const isStart = (i === 0);
+                const pulse = (lastClickNode === i && clickPulse > 0);
+                drawNode(cities[i].x, cities[i].y, cities[i].emoji || "🏛️", isStart, pulse);
+                ctx.font = "bold 11px 'JetBrains Mono'"; ctx.fillStyle = "#fff0f5"; ctx.shadowBlur = 4;
+                ctx.fillText(`${i}`, cities[i].x, cities[i].y - 34);
+            }
+            let activeForCar = (displayMode === 'ai' && bestPath.length === cities.length && bestCost !== Infinity) ? bestPath : (displayMode === 'user' && userPath.length > 1 ? userPath : []);
+            if (activeForCar.length >= 2) {
+                const segs = getSegments(activeForCar);
+                const pos = getCarPos(segs, carPos);
+                if (pos) drawVehicle(pos.x, pos.y, selectedVehicleEmoji);
+            }
+            if (glowFlag) {
+                ctx.font = "bold 18px 'JetBrains Mono'";
+                ctx.fillStyle = "#fff0b5";
+                ctx.shadowBlur = 22;
+                ctx.shadowColor = "#ff2a6d";
+                ctx.textAlign = "right";
+                ctx.fillText("⚡ AI IMPROVED ⚡", canvas.width - 20, 45);
+                ctx.textAlign = "center";
+            }
+        }
+
+        function restartCarAnimation() {
+            carPos = 0;
+            if (animFrame) cancelAnimationFrame(animFrame);
+            function animate() {
+                if (!canvas.isConnected) return;
+                carPos = (carPos + 0.003) % 1.0;
+                drawCanvas();
+                animFrame = requestAnimationFrame(animate);
+            }
+            animFrame = requestAnimationFrame(animate);
+        }
+
+        function startPolling() {
+            if (pollingInterval) clearInterval(pollingInterval);
+            pollingInterval = setInterval(async () => {
+                try {
+                    const res = await fetch('/api/state');
+                    const data = await res.json();
+                    cities = data.cities;
+                    userPath = data.userPath;
+                    bestPath = data.bestPath;
+                    bestCost = data.bestCost;
+                    T = data.T;
+                    updateStats();
+                    drawCanvas();
+                } catch(e) { console.warn("Polling error", e); }
+            }, 100);
+        }
+
+        // ---------- RESET HANDLER ----------
+        async function hardReset() {
+            await fetch('/api/reset', { method: 'POST' });
+            customScenarioMode = false;
+            placingNodes = true;
+            pathDefinitionMode = false;
+            displayMode = 'user';
+            await fetchState();
+            document.getElementById('scenarioStatus').innerHTML = "Mode: Default Skyline";
+            document.getElementById('modeStatus').innerHTML = "Click nodes to build path order";
+            drawCanvas();
+        }
+
+        document.getElementById('resetCustomBtn').addEventListener('click', hardReset);
+        document.getElementById('resetAllBtn').addEventListener('click', hardReset);
+
+        document.getElementById('makeCustomBtn').addEventListener('click', async () => {
+            await fetch('/api/custom/start', { method: 'POST' });
+            customScenarioMode = true;
+            placingNodes = true;
+            pathDefinitionMode = false;
+            document.getElementById('scenarioStatus').innerHTML = "Mode: Custom Builder Active";
+            document.getElementById('modeStatus').innerHTML = "Click canvas to place landmarks";
+            await fetchState();
+        });
+
+        document.getElementById('makePathBtn').addEventListener('click', () => {
+            if (!customScenarioMode) { alert("First click 'Create Custom Map'"); return; }
+            if (cities.length < 2) { alert("Place at least 2 landmarks first"); return; }
+            placingNodes = false;
+            pathDefinitionMode = true;
+            document.getElementById('modeStatus').innerHTML = "PATH MODE: Click landmarks in order";
+        });
+
+        document.getElementById('runAiBtn').addEventListener('click', async () => {
+            await fetch('/api/run-annealing/start', { method: 'POST' });
+            displayMode = 'ai';
+        });
+
+        document.getElementById('showMyPathBtn').addEventListener('click', () => { displayMode = 'user'; drawCanvas(); });
+        document.getElementById('showAiPathBtn').addEventListener('click', () => { if (bestPath.length === cities.length) displayMode = 'ai'; else alert("AI hasn't found a full route yet"); drawCanvas(); });
+        document.getElementById('showResultBtn').addEventListener('click', async () => {
+            if (cities.length === 0) { alert("No landmarks"); return; }
+            if (userPath.length !== cities.length) { alert("Incomplete path!"); return; }
+            let userCost = pathCostLocal(userPath);
+            if (bestCost === Infinity) alert(`AI not run yet. Your cost: ${userCost.toFixed(2)}`);
+            else if (userCost <= bestCost * 1.1) alert(`✅ EXCELLENT! Your cost: ${userCost.toFixed(2)} | AI best: ${bestCost.toFixed(2)} — within 10%`);
+            else alert(`❌ Improve. Your cost: ${userCost.toFixed(2)} | AI best: ${bestCost.toFixed(2)}.`);
+        });
+
+        // ---------- CANVAS CLICK (PATH BUILDING) ----------
+        canvas.addEventListener('click', async (e) => {
+            const rect = canvas.getBoundingClientRect();
+            const scaleX = canvas.width / rect.width;
+            const scaleY = canvas.height / rect.height;
+            let mx = (e.clientX - rect.left) * scaleX;
+            let my = (e.clientY - rect.top) * scaleY;
+
+            if (customScenarioMode && placingNodes) {
+                await fetch('/api/custom/add-node', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ x: mx, y: my, emoji: selectedDestEmoji })
+                });
+                await fetchState();
+                return;
+            } 
+            else if (customScenarioMode && pathDefinitionMode) {
+                let nearest = -1, minD = 50;
+                for (let i = 0; i < cities.length; i++) {
+                    let d = Math.hypot(cities[i].x - mx, cities[i].y - my);
+                    if (d < minD) { minD = d; nearest = i; }
+                }
+                if (nearest !== -1 && !userPath.includes(nearest) && nearest !== 0) {
+                    const newPath = [...userPath, nearest];
+                    await fetch('/api/update-user-path', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ path: newPath })
+                    });
+                    await fetchState();
+                    displayMode = 'user';
+                    drawCanvas();
+                    lastClickNode = nearest;
+                    clickPulse = 5;
+                    setTimeout(() => { if (clickPulse > 0) clickPulse--; drawCanvas(); }, 120);
+                    if (userPath.length === cities.length) setTimeout(() => alert("✅ Full route defined!"), 100);
+                } else if (nearest === 0) alert("🏁 Start is fixed.");
+                else if (nearest !== -1 && userPath.includes(nearest)) alert("Already visited");
+                return;
+            } 
+            else {
+                if (cities.length === 0) return;
+                let nearest = -1, minD = 50;
+                for (let i = 0; i < cities.length; i++) {
+                    let d = Math.hypot(cities[i].x - mx, cities[i].y - my);
+                    if (d < minD) { minD = d; nearest = i; }
+                }
+                if (nearest !== -1 && nearest !== 0 && !userPath.includes(nearest)) {
+                    const newPath = [...userPath, nearest];
+                    await fetch('/api/update-user-path', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ path: newPath })
+                    });
+                    await fetchState();
+                    displayMode = 'user';
+                    drawCanvas();
+                    lastClickNode = nearest;
+                    clickPulse = 5;
+                    setTimeout(() => { if (clickPulse > 0) clickPulse--; drawCanvas(); }, 120);
+                } else if (nearest === 0) alert("Start fixed.");
+            }
+        });
+
+        // Vehicle & landmark selection
+        document.querySelectorAll('#vehiclePalette .palette-item').forEach(el => {
+            el.addEventListener('click', () => {
+                document.querySelectorAll('#vehiclePalette .palette-item').forEach(p => p.classList.remove('selected'));
+                el.classList.add('selected');
+                selectedVehicleEmoji = el.getAttribute('data-vehicle');
+                drawCanvas();
+            });
+        });
+        document.querySelectorAll('#destPalette .palette-item').forEach(el => {
+            el.addEventListener('click', () => {
+                document.querySelectorAll('#destPalette .palette-item').forEach(p => p.classList.remove('selected'));
+                el.classList.add('selected');
+                selectedDestEmoji = el.getAttribute('data-dest');
+            });
+        });
+
+        const menuToggle = document.getElementById('menuToggle');
+        const appDiv = document.getElementById('app');
+        menuToggle.addEventListener('click', () => { appDiv.classList.toggle('sidebar-hidden'); });
+
+        // Initialization
+        (async () => {
+            await fetch('/api/reset', { method: 'POST' });
+            await fetchState();
+            startPolling();
+            restartCarAnimation();
+        })();
+    </script>
+</body>
+</html>
